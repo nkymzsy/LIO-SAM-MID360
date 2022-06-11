@@ -2,7 +2,8 @@ lio_sam:
 
   # Topics
   pointCloudTopic: "livox/lidar"               # Point cloud data
-  imuTopic: "imu/data"                         # IMU data
+  imuTopic: "livox/imu"                         # IMU data
+  # imuTopic: "imu/data"                         # IMU data
   odomTopic: "odometry/imu"                   # IMU pre-preintegration odometry, same frequency as IMU
   gpsTopic: "odometry/gpsz"                   # GPS odometry topic from navsat, see module_navsat.launch file
 
@@ -24,15 +25,15 @@ lio_sam:
 
   # Sensor Settings
   sensor: livox                            # lidar sensor type, 'velodyne' or 'ouster' or 'livox'
-  N_SCAN: 32                                  # number of lidar channel (i.e., Velodyne/Ouster: 16, 32, 64, 128, Livox Horizon: 6)
-  Horizon_SCAN: 300                          # lidar horizontal resolution (Velodyne:1800, Ouster:512,1024,2048, Livox Horizon: 4000)
   downsampleRate: 1                           # default: 1. Downsample your data if too many points. i.e., 16 = 64 / 4, 16 = 16 / 1
   lidarMinRange: 0.5                         # default: 1.0, minimum lidar range to be used
   lidarMaxRange: 100.0                       # default: 1000.0, maximum lidar range to be used
+  pointNumberMax: 30000
 
   # IMU Settings
-  imuAccNoise: 3.9939570888238808e-03
-  imuGyrNoise: 1.5636343949698187e-03
+  imuType: 0                               #0: 6-axis imu  1:9-axis imu 注意使用六轴IMU时默认使用MID360内置的IMU数据，加速度单位为g，后续处理中会将这一值乘以重力加速度，恢复为m/s^2
+  imuAccNoise: 3.9939570888238808e-02
+  imuGyrNoise: 1.5636343949698187e-02
   imuAccBiasN: 6.4356659353532566e-05
   imuGyrBiasN: 3.5640318696367613e-05
   imuGravity: 9.80511
@@ -47,20 +48,21 @@ lio_sam:
   #                1, 0, 0,
   #                0, 0, 1]
 
-  # extrinsicRot: [1, 0, 0,
-  #                 0, 1, 0,
-  #                 0, 0, 1]
-  # extrinsicRPY: [1, 0, 0,
-  #                 0, 1, 0,
-  #                 0, 0, 1]
-
-  extrinsicTrans: [0.0, 0.0, 0.05]
+  extrinsicTrans: [0.0, 0.0, 0]
   extrinsicRot: [1, 0, 0,
-                  0, -1, 0,
-                  0, 0, -1]
+                  0, 1, 0,
+                  0, 0, 1]
   extrinsicRPY: [1, 0, 0,
-                  0, -1, 0,
-                  0, 0, -1]
+                  0, 1, 0,
+                  0, 0, 1]
+
+  # extrinsicTrans: [0.0, 0.0, -0.05]
+  # extrinsicRot: [1, 0, 0,
+  #                 0, -1, 0,
+  #                 0, 0, -1]
+  # extrinsicRPY: [1, 0, 0,
+  #                 0, -1, 0,
+  #                 0, 0, -1]
 
   # LOAM feature threshold
   edgeThreshold: 0.1
@@ -69,7 +71,7 @@ lio_sam:
   surfFeatureMinValidNum: 100
 
   # voxel filter paprams
-  odometrySurfLeafSize: 0.25                     # default: 0.4 - outdoor, 0.2 - indoor
+  odometrySurfLeafSize: 0.3                     # default: 0.4 - outdoor, 0.2 - indoor
   mappingCornerLeafSize: 0.1                    # default: 0.2 - outdoor, 0.1 - indoor
   mappingSurfLeafSize: 0.2                      # default: 0.4 - outdoor, 0.2 - indoor
 

@@ -83,7 +83,6 @@ private:
     double timeScanEnd;
     std_msgs::Header cloudHeader;
 
-    vector<int> columnIdnCountVec;
 
 
 public:
@@ -109,11 +108,11 @@ public:
         fullCloud.reset(new pcl::PointCloud<PointType>());
         extractedCloud.reset(new pcl::PointCloud<PointType>());
 
-        fullCloud->points.resize(30000);
+        fullCloud->points.resize(pointNumberMax);
 
-        cloudInfo.pointRange.assign(30000, 0);
+        cloudInfo.pointRange.assign(pointNumberMax, 0);
 
-        rangeMat  = new float[30000];
+        rangeMat  = new float[pointNumberMax];
 
         resetParameters();
     }
@@ -124,7 +123,7 @@ public:
         extractedCloud->clear();
         // reset range matrix for range image projection
 
-        for(uint i=0;i<30000;i++)
+        for(uint i=0;i<pointNumberMax;i++)
             rangeMat[i]=FLT_MAX;
 
         imuPointerCur = 0;
@@ -139,7 +138,6 @@ public:
             imuRotZ[i] = 0;
         }
 
-        columnIdnCountVec.assign(N_SCAN, 0);
     }
 
     ~ImageProjection(){}

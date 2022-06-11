@@ -52,7 +52,7 @@ public:
 
     void initializationValue()
     {
-        cloudSmoothness.resize(30000);
+        cloudSmoothness.resize(pointNumberMax);
 
         downSizeFilter.setLeafSize(odometrySurfLeafSize, odometrySurfLeafSize, odometrySurfLeafSize);
 
@@ -61,9 +61,9 @@ public:
         surfaceCloud.reset(new pcl::PointCloud<PointType>());
         testCloud.reset(new pcl::PointCloud<PointType>());
 
-        cloudCurvature = new float[30000];
-        cloudNeighborPicked = new int[30000];
-        cloudLabel = new int[30000];
+        cloudCurvature = new float[pointNumberMax];
+        cloudNeighborPicked = new int[pointNumberMax];
+        cloudLabel = new int[pointNumberMax];
     }
 
     void laserCloudInfoHandler(const lio_sam::cloud_infoConstPtr& msgIn)

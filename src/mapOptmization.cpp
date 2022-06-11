@@ -209,12 +209,12 @@ public:
         laserCloudOri.reset(new pcl::PointCloud<PointType>());
         coeffSel.reset(new pcl::PointCloud<PointType>());
 
-        laserCloudOriCornerVec.resize(N_SCAN * Horizon_SCAN);
-        coeffSelCornerVec.resize(N_SCAN * Horizon_SCAN);
-        laserCloudOriCornerFlag.resize(N_SCAN * Horizon_SCAN);
-        laserCloudOriSurfVec.resize(N_SCAN * Horizon_SCAN);
-        coeffSelSurfVec.resize(N_SCAN * Horizon_SCAN);
-        laserCloudOriSurfFlag.resize(N_SCAN * Horizon_SCAN);
+        laserCloudOriCornerVec.resize(pointNumberMax);
+        coeffSelCornerVec.resize(pointNumberMax);
+        laserCloudOriCornerFlag.resize(pointNumberMax);
+        laserCloudOriSurfVec.resize(pointNumberMax);
+        coeffSelSurfVec.resize(pointNumberMax);
+        laserCloudOriSurfFlag.resize(pointNumberMax);
 
         std::fill(laserCloudOriCornerFlag.begin(), laserCloudOriCornerFlag.end(), false);
         std::fill(laserCloudOriSurfFlag.begin(), laserCloudOriSurfFlag.end(), false);
@@ -250,24 +250,27 @@ public:
         static double timeLastProcessing = -1;
         if (timeLaserInfoCur - timeLastProcessing >= mappingProcessInterval)
         {
+            ros::Time startTime = ros::Time::now();
             timeLastProcessing = timeLaserInfoCur;
-
-            ROS_INFO("1");
+            ROS_INFO("M1");
             updateInitialGuess();
-            ROS_INFO("2");
+            ROS_INFO("M2");
             extractSurroundingKeyFrames();
-            ROS_INFO("3");
+            ROS_INFO("M3");
             downsampleCurrentScan();
-            ROS_INFO("4");
+            ROS_INFO("M4");
             scan2MapOptimization();
-            ROS_INFO("5");
+            ROS_INFO("M5");
             saveKeyFramesAndFactor();
-            ROS_INFO("6");
+            ROS_INFO("M6");
             correctPoses();
-            ROS_INFO("7");
+            ROS_INFO("M7");
             publishOdometry();
 
             publishFrames();
+            ros::Time endTime = ros::Time::now();
+            auto timeDuring=endTime.toSec()-startTime.toSec();
+            ROS_INFO("Mapping: %.3f s",timeDuring );
         }
     }
 
@@ -340,19 +343,6 @@ public:
     }
 
     
-
-
-
-
-
-
-
-
-
-
-
-
-
     bool saveMapService(lio_sam::save_mapRequest& req, lio_sam::save_mapResponse& res)
     {
       string saveMapDirectory;
@@ -1066,9 +1056,9 @@ public:
 
     void surfOptimization()
     {
-        ROS_INFO("4.4.1");
+        ROS_INFO("M4.4.1");
         updatePointAssociateToMap();
-        ROS_INFO("4.4.2");
+        ROS_INFO("M4.4.2");
         #pragma omp parallel for num_threads(numberOfCores)
         for (int i = 0; i < laserCloudSurfLastDSNum; i++)
         {
@@ -1295,18 +1285,18 @@ public:
             {
                 laserCloudOri->clear();
                 coeffSel->clear();
-                ROS_INFO("4.1");
+                ROS_INFO("M4.1");
                 cornerOptimization();
-                ROS_INFO("4.2");
+                ROS_INFO("M4.2");
                 surfOptimization();
-                ROS_INFO("4.3");
+                ROS_INFO("M4.3");
                 combineOptimizationCoeffs();
-                ROS_INFO("4.4");
+                ROS_INFO("M4.4");
                 if (LMOptimization(iterCount) == true)
                     break;              
             }
-             ROS_INFO("4.5");
-            transformUpdate();
+             ROS_INFO("M4.5");
+             transformUpdate();
         } else {
             ROS_WARN("Not enough features! Only %d edge and %d planar features available.", laserCloudCornerLastDSNum, laserCloudSurfLastDSNum);
         }
@@ -1314,28 +1304,33 @@ public:
 
     void transformUpdate()
     {
-        if (cloudInfo.imuAvailable == true)
+        //如果是九轴IMU才利用IMU姿态加权融合
+        if(imuType==1)
         {
-            if (std::abs(cloudInfo.imuPitchInit) < 1.4)
+            if (cloudInfo.imuAvailable == true)
             {
-                double imuWeight = imuRPYWeight;
-                tf::Quaternion imuQuaternion;
-                tf::Quaternion transformQuaternion;
-                double rollMid, pitchMid, yawMid;
+                if (std::abs(cloudInfo.imuPitchInit) < 1.4)
+                {
+                    double imuWeight = imuRPYWeight;
+                    tf::Quaternion imuQuaternion;
+                    tf::Quaternion transformQuaternion;
+                    double rollMid, pitchMid, yawMid;
 
-                // slerp roll
-                transformQuaternion.setRPY(transformTobeMapped[0], 0, 0);
-                imuQuaternion.setRPY(cloudInfo.imuRollInit, 0, 0);
-                tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
-                transformTobeMapped[0] = rollMid;
+                    // slerp roll
+                    transformQuaternion.setRPY(transformTobeMapped[0], 0, 0);
+                    imuQuaternion.setRPY(cloudInfo.imuRollInit, 0, 0);
+                    tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
+                    transformTobeMapped[0] = rollMid;
 
-                // slerp pitch
-                transformQuaternion.setRPY(0, transformTobeMapped[1], 0);
-                imuQuaternion.setRPY(0, cloudInfo.imuPitchInit, 0);
-                tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
-                transformTobeMapped[1] = pitchMid;
+                    // slerp pitch
+                    transformQuaternion.setRPY(0, transformTobeMapped[1], 0);
+                    imuQuaternion.setRPY(0, cloudInfo.imuPitchInit, 0);
+                    tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
+                    transformTobeMapped[1] = pitchMid;
+                }
             }
         }
+
 
         transformTobeMapped[0] = constraintTransformation(transformTobeMapped[0], rotation_tollerance);
         transformTobeMapped[1] = constraintTransformation(transformTobeMapped[1], rotation_tollerance);
@@ -1359,11 +1354,12 @@ public:
         if (cloudKeyPoses3D->points.empty())
             return true;
 
-        if (sensor == SensorType::LIVOX)
-        {
-            if (timeLaserInfoCur - cloudKeyPoses6D->back().time > 1.0)
-                return true;
-        }
+        // 感觉没有必要超过一秒就添加关键帧？
+        // if (sensor == SensorType::LIVOX)
+        // {
+        //     if (timeLaserInfoCur - cloudKeyPoses6D->back().time > 1.0)
+        //         return true;
+        // }
 
         Eigen::Affine3f transStart = pclPointToAffine3f(cloudKeyPoses6D->back());
         Eigen::Affine3f transFinal = pcl::getTransformation(transformTobeMapped[3], transformTobeMapped[4], transformTobeMapped[5], 
@@ -1667,28 +1663,33 @@ public:
             increOdomAffine = increOdomAffine * affineIncre;
             float x, y, z, roll, pitch, yaw;
             pcl::getTranslationAndEulerAngles (increOdomAffine, x, y, z, roll, pitch, yaw);
-            if (cloudInfo.imuAvailable == true)
+            //使用九轴IMU的时候才选择用IMU姿态进行位姿融合
+            if(imuType==1)
             {
-                if (std::abs(cloudInfo.imuPitchInit) < 1.4)
+                if (cloudInfo.imuAvailable == true)
                 {
-                    double imuWeight = 0.1;
-                    tf::Quaternion imuQuaternion;
-                    tf::Quaternion transformQuaternion;
-                    double rollMid, pitchMid, yawMid;
+                    if (std::abs(cloudInfo.imuPitchInit) < 1.4)
+                    {
+                        double imuWeight = 0.1;
+                        tf::Quaternion imuQuaternion;
+                        tf::Quaternion transformQuaternion;
+                        double rollMid, pitchMid, yawMid;
 
-                    // slerp roll
-                    transformQuaternion.setRPY(roll, 0, 0);
-                    imuQuaternion.setRPY(cloudInfo.imuRollInit, 0, 0);
-                    tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
-                    roll = rollMid;
+                        // slerp roll
+                        transformQuaternion.setRPY(roll, 0, 0);
+                        imuQuaternion.setRPY(cloudInfo.imuRollInit, 0, 0);
+                        tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
+                        roll = rollMid;
 
-                    // slerp pitch
-                    transformQuaternion.setRPY(0, pitch, 0);
-                    imuQuaternion.setRPY(0, cloudInfo.imuPitchInit, 0);
-                    tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
-                    pitch = pitchMid;
+                        // slerp pitch
+                        transformQuaternion.setRPY(0, pitch, 0);
+                        imuQuaternion.setRPY(0, cloudInfo.imuPitchInit, 0);
+                        tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
+                        pitch = pitchMid;
+                    }
                 }
             }
+
             laserOdomIncremental.header.stamp = timeLaserInfoStamp;
             laserOdomIncremental.header.frame_id = odometryFrame;
             laserOdomIncremental.child_frame_id = "odom_mapping";
