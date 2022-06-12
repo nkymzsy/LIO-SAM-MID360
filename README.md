@@ -12,10 +12,24 @@
 
 Livox MID360雷达数据请使用览沃自定义点云数据`CustomMsg`，即LIVOX ROS驱动请运行`livox_lidar_msg.launch`。
 
+## Run
+
+使用自带的6轴IMU请运行
+
+```
+roslaunch lio_sam run6axis.launch
+```
+
+使用9轴IMU请运行
+
+```
+roslaunch lio_sam run9axis.launch
+```
+
 ## Note
 
 - 注意对齐Lidar与IMU的时间戳。
-- 注意修改Lidai与IMU的外参。(param.yaml文件)
+- 使用非自带IMU注意修改Lidai与IMU的外参。(param.yaml文件)
 - 六轴IMU默认使用MID360内置的IMU，加速度单位为g，处理时乘重力加速度转换为m/s^2，如果使用其他六轴IMU需要注释这条语句。
 
 ## TODO

@@ -1,9 +1,9 @@
+# 这份配置文件为使用LIVOX自带的IMU时的配置文件
 lio_sam:
 
   # Topics
   pointCloudTopic: "livox/lidar"               # Point cloud data
   imuTopic: "livox/imu"                         # IMU data
-  # imuTopic: "imu/data"                         # IMU data
   odomTopic: "odometry/imu"                   # IMU pre-preintegration odometry, same frequency as IMU
   gpsTopic: "odometry/gpsz"                   # GPS odometry topic from navsat, see module_navsat.launch file
 
@@ -32,21 +32,12 @@ lio_sam:
 
   # IMU Settings
   imuType: 0                               #0: 6-axis imu  1:9-axis imu 注意使用六轴IMU时默认使用MID360内置的IMU数据，加速度单位为g，后续处理中会将这一值乘以重力加速度，恢复为m/s^2
-  imuAccNoise: 3.9939570888238808e-02
-  imuGyrNoise: 1.5636343949698187e-02
-  imuAccBiasN: 6.4356659353532566e-05
-  imuGyrBiasN: 3.5640318696367613e-05
-  imuGravity: 9.80511
-  imuRPYWeight: 0.01
-
-  # Extrinsics: T_lb (lidar -> imu)
-  # extrinsicTrans: [0.0, -0.05, 0]
-  # extrinsicRot: [-1, 0, 0,
-  #                 0, 1, 0,
-  #                 0, 0, -1]
-  # extrinsicRPY: [0, -1, 0,
-  #                1, 0, 0,
-  #                0, 0, 1]
+  imuAccNoise: 1.0e-02
+  imuGyrNoise: 1.0e-02   
+  imuAccBiasN: 0.19
+  imuGyrBiasN: 0.04
+  imuGravity: 9.8035
+  imuRPYWeight: 0.00
 
   extrinsicTrans: [0.0, 0.0, 0]
   extrinsicRot: [1, 0, 0,
@@ -55,14 +46,6 @@ lio_sam:
   extrinsicRPY: [1, 0, 0,
                   0, 1, 0,
                   0, 0, 1]
-
-  # extrinsicTrans: [0.0, 0.0, -0.05]
-  # extrinsicRot: [1, 0, 0,
-  #                 0, -1, 0,
-  #                 0, 0, -1]
-  # extrinsicRPY: [1, 0, 0,
-  #                 0, -1, 0,
-  #                 0, 0, -1]
 
   # LOAM feature threshold
   edgeThreshold: 0.1
