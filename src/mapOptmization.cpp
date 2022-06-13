@@ -17,6 +17,9 @@
 
 #include <gtsam/nonlinear/ISAM2.h>
 
+//Zeng Shengyao: zengshengyao20@mails.ucas.edu.cn
+//本代码为LIO-SAM适配Mid360版本，支持六轴和九轴IMU
+
 using namespace gtsam;
 
 using symbol_shorthand::X; // Pose3 (x,y,z,r,p,y)

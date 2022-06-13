@@ -16,6 +16,9 @@
 #include <gtsam/nonlinear/ISAM2.h>
 #include <gtsam_unstable/nonlinear/IncrementalFixedLagSmoother.h>
 
+//Zeng Shengyao: zengshengyao20@mails.ucas.edu.cn
+//本代码为LIO-SAM适配Mid360版本，支持六轴和九轴IMU
+
 using gtsam::symbol_shorthand::X; // Pose3 (x,y,z,r,p,y)
 using gtsam::symbol_shorthand::V; // Vel   (xdot,ydot,zdot)
 using gtsam::symbol_shorthand::B; // Bias  (ax,ay,az,gx,gy,gz)

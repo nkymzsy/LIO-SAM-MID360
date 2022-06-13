@@ -1,6 +1,9 @@
 #include "utility.h"
 #include "lio_sam/cloud_info.h"
 
+//Zeng Shengyao: zengshengyao20@mails.ucas.edu.cn
+//本代码为LIO-SAM适配Mid360版本，支持六轴和九轴IMU
+
 struct smoothness_t{ 
     float value;
     size_t ind;

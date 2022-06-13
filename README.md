@@ -26,11 +26,18 @@ roslaunch lio_sam run6axis.launch
 roslaunch lio_sam run9axis.launch
 ```
 
+## Test
+
+- 室内环境旋转测试
+
+<img src="doc/indorTest.gif"  style="zoom: 100%;"/>
+
 ## Note
 
 - 注意对齐Lidar与IMU的时间戳。
 - 使用非自带IMU注意修改Lidai与IMU的外参。(param.yaml文件)
 - 六轴IMU默认使用MID360内置的IMU，加速度单位为g，处理时乘重力加速度转换为m/s^2，如果使用其他六轴IMU需要注释这条语句。
+- 如果观察到IMU里程计抖动的话，请调节IMU参数
 
 ## TODO
 
