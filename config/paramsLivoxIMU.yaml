@@ -26,14 +26,14 @@ lio_sam:
   # Sensor Settings
   sensor: livox                            # lidar sensor type, 'velodyne' or 'ouster' or 'livox'
   downsampleRate: 1                           # default: 1. Downsample your data if too many points. i.e., 16 = 64 / 4, 16 = 16 / 1
-  lidarMinRange: 0.5                         # default: 1.0, minimum lidar range to be used
+  lidarMinRange: 0.7                         # default: 1.0, minimum lidar range to be used
   lidarMaxRange: 100.0                       # default: 1000.0, maximum lidar range to be used
   pointNumberMax: 30000
 
   # IMU Settings
   imuType: 0                               #0: 6-axis imu  1:9-axis imu 注意使用六轴IMU时默认使用MID360内置的IMU数据，加速度单位为g，后续处理中会将这一值乘以重力加速度，恢复为m/s^2
   imuAccNoise: 1.0e-02
-  imuGyrNoise: 1.0e-02   
+  imuGyrNoise: 1.0e-02 
   imuAccBiasN: 0.19
   imuGyrBiasN: 0.04
   imuGravity: 9.8035

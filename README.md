@@ -30,7 +30,7 @@ roslaunch lio_sam run9axis.launch
 
 - 室内环境旋转测试
 
-<img src="doc/indorTest.gif"  style="zoom: 100%;"/>
+<img src="doc/indoorTest.gif" alt="indoorTest.gif" title="Indoor Test" style="zoom: 100%;"/>
 
 ## Note
 

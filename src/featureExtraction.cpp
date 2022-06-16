@@ -92,8 +92,8 @@ public:
         {
             for (int j = 5; j < cloudInfo.Line2point[i].index.size() - 5; j++)
             {
-                float diffRange = cloudInfo.pointRange[cloudInfo.Line2point[i].index[j-2]] + cloudInfo.pointRange[cloudInfo.Line2point[i].index[j-1]]- cloudInfo.pointRange[cloudInfo.Line2point[i].index[j]] *4
-                                                    + cloudInfo.pointRange[cloudInfo.Line2point[i].index[j+1]] + cloudInfo.pointRange[cloudInfo.Line2point[i].index[j+2]]  ;            
+                float diffRange =cloudInfo.pointRange[cloudInfo.Line2point[i].index[j-4]]+ cloudInfo.pointRange[cloudInfo.Line2point[i].index[j-3]] + cloudInfo.pointRange[cloudInfo.Line2point[i].index[j-2]] + cloudInfo.pointRange[cloudInfo.Line2point[i].index[j-1]]- cloudInfo.pointRange[cloudInfo.Line2point[i].index[j]] *8
+                                                    + cloudInfo.pointRange[cloudInfo.Line2point[i].index[j+1]] + cloudInfo.pointRange[cloudInfo.Line2point[i].index[j+2]] +cloudInfo.pointRange[cloudInfo.Line2point[i].index[j+3]]+cloudInfo.pointRange[cloudInfo.Line2point[i].index[j+4]] ;            
 
                 cloudCurvature[cloudInfo.Line2point[i].index[j]] = diffRange*diffRange;//diffX * diffX + diffY * diffY + diffZ * diffZ;
 
