@@ -249,9 +249,10 @@ public:
         std::lock_guard<std::mutex> lock2(odoLock);
 
         // make sure IMU data available for the scan
+        ROS_INFO("%f, %f ,%f, %f",imuQueue.front().header.stamp.toSec(), imuQueue.back().header.stamp.toSec(), timeScanCur, timeScanEnd);
         if (imuQueue.empty() || imuQueue.front().header.stamp.toSec() > timeScanCur || imuQueue.back().header.stamp.toSec() < timeScanEnd)
         {
-            ROS_INFO("%f ,%f, %f",imuQueue.back().header.stamp.toSec(),timeScanCur, timeScanEnd);
+            ROS_INFO("%f ,%f, %f",imuQueue.back().header.stamp.toSec(), timeScanCur, timeScanEnd);
             ROS_INFO("Waiting for IMU data ... %d %d %d",imuQueue.empty(), imuQueue.front().header.stamp.toSec() > timeScanCur,imuQueue.back().header.stamp.toSec() < timeScanEnd);
             return false;
         }

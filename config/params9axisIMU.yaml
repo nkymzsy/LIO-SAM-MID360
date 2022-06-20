@@ -34,7 +34,7 @@ lio_sam:
   imuAccNoise: 1.0e-03
   imuGyrNoise: 1.0e-03   
   imuAccBiasN: 1.0e-04
-  imuGyrBiasN: 0.04
+  imuGyrBiasN: 1.0e-03
   imuGravity: 9.8035
   imuRPYWeight: 0.01
 
@@ -47,24 +47,24 @@ lio_sam:
   #                1, 0, 0,
   #                0, 0, 1]
 
-  extrinsicTrans: [0.0, 0.07, 0]
-  extrinsicRot: [1, 0, 0,
-                  0, 1, 0,
-                  0, 0, 1]
-  extrinsicRPY: [1, 0, 0,
-                  0, 1, 0,
-                  0, 0, 1]
-
-  # extrinsicTrans: [0.0, 0.0, -0.05]
+  # extrinsicTrans: [0.0, 0.07, 0]
   # extrinsicRot: [1, 0, 0,
-  #                 0, -1, 0,
-  #                 0, 0, -1]
+  #                 0, 1, 0,
+  #                 0, 0, 1]
   # extrinsicRPY: [1, 0, 0,
-  #                 0, -1, 0,
-  #                 0, 0, -1]
+  #                 0, 1, 0,
+  #                 0, 0, 1]
+
+  extrinsicTrans: [0.0, 0.0, -0.05]
+  extrinsicRot: [1, 0, 0,
+                  0, -1, 0,
+                  0, 0, -1]
+  extrinsicRPY: [1, 0, 0,
+                  0, -1, 0,
+                  0, 0, -1]
 
   # LOAM feature threshold
-  edgeThreshold: 0.1
+  edgeThreshold: 2
   surfThreshold: 0.1
   edgeFeatureMinValidNum: 10
   surfFeatureMinValidNum: 100

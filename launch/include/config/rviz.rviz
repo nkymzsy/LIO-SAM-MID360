@@ -252,7 +252,7 @@ Visualization Manager:
           Position Transformer: XYZ
           Queue Size: 10
           Selectable: true
-          Size (Pixels): 8
+          Size (Pixels): 6
           Size (m): 0.009999999776482582
           Style: Points
           Topic: /lio_sam/feature/cloud_corner

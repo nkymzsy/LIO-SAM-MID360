@@ -74,13 +74,13 @@ public:
         cloudInfo = *msgIn; // new cloud info
         cloudHeader = msgIn->header; // new cloud header
         pcl::fromROSMsg(msgIn->cloud_deskewed, *extractedCloud); // new cloud for extraction
-
+        ROS_DEBUG("F1");
         calculateSmoothness();
-
+        ROS_DEBUG("F2");
         markOccludedPoints();
-
+        ROS_DEBUG("F3");
         extractFeatures();
-        
+        ROS_DEBUG("F4");
         publishFeatureCloud();
     }
 
@@ -157,7 +157,8 @@ public:
 
     void extractFeatures()
     {
-        int cloudSize = extractedCloud->points.size();
+        ROS_DEBUG("F3.0");
+        uint cloudSize = extractedCloud->points.size();
         cornerCloud->clear();
         surfaceCloud->clear();
 
@@ -165,74 +166,78 @@ public:
         pcl::PointCloud<PointType>::Ptr surfaceCloudScanDS(new pcl::PointCloud<PointType>());
 
         //一块一块的选角点
-        #if(1)  
-            //暂定每600个点选30个角点
-            for (int j = 0; j * 600+599  < cloudSize-1 ; j++)
+        //暂定每200个点选15个角点
+        const uint div = 200;
+        const uint pickNum = 15;
+        for (uint sp = 5; sp+div<cloudSize-6; sp+=div)
+        {
+            uint ep=std::min(sp+div,cloudSize-6);
+            std::sort(cloudSmoothness.begin() + sp, cloudSmoothness.begin() +ep, by_value());
+
+            int largestPickedNum = 0;
+            for (int k =ep; k >= sp; k--)
             {
-                std::sort(cloudSmoothness.begin()+ j * 600, cloudSmoothness.begin() + j * 600 +599, by_value());
-
-                int largestPickedNum = 0;
-                for (int k =  j * 600 +599; k >=  j * 600; k--)
+                int ind = cloudSmoothness[k].ind;
+                if (cloudNeighborPicked[ind] == 0 && cloudCurvature[ind] > edgeThreshold)
                 {
-                    int ind = cloudSmoothness[k].ind;
-                    if (cloudNeighborPicked[ind] == 0 && cloudCurvature[ind] > edgeThreshold)
+                    largestPickedNum++;
+                    if (largestPickedNum <= pickNum)
                     {
-                        largestPickedNum++;
-                        if (largestPickedNum <= 30 )
-                        {
-                            cloudLabel[ind] = 1;
-                            cornerCloud->push_back(extractedCloud->points[ind]);
-                        } else {
-                            break;
-                        }
-
-                        cloudNeighborPicked[ind] = 1;
-                        for (int l = 1; l <= 2; l++)
-                        {
-                            cloudNeighborPicked[ind + l] = 1;
-                        }
-                        for (int l = -1; l >= -2; l--)
-                        {
-                            cloudNeighborPicked[ind + l] = 1;
-                        }
+                        cloudLabel[ind] = 1;
+                        cornerCloud->push_back(extractedCloud->points[ind]);
                     }
-                }
-
-                for (int k = 5; k < cloudSize-5 ; k++)
-                {
-                    int ind = cloudSmoothness[k].ind;
-                    if (cloudNeighborPicked[ind] == 0 && cloudCurvature[ind] < surfThreshold)
+                    else
                     {
-
-                        cloudLabel[ind] = -1;
-                        cloudNeighborPicked[ind] = 1;
-
-                        for (int l = 1; l <= 2; l++) {
-                            cloudNeighborPicked[ind + l] = 1;
-                        }
-                        for (int l = -1; l >= -2; l--) {
-
-                            cloudNeighborPicked[ind + l] = 1;
-                        }
+                        break;
                     }
-                }
 
-                for (int k = 0; k  < cloudSize-1 ; k++)
-                {
-                    if (cloudLabel[k] <= 0 ){
-                        surfaceCloudScan->push_back(extractedCloud->points[k]);
+                    cloudNeighborPicked[ind] = 1;
+                    if (ind < 6 || ind > cloudSize - 7)
+                        continue;
+                    for (int l = 1; l <= 4; l++)
+                    {
+                        cloudNeighborPicked[ind + l] = 1;
+                    }
+                    for (int l = -1; l >= -4; l--)
+                    {
+                        cloudNeighborPicked[ind + l] = 1;
                     }
                 }
             }
+            for (int k = sp; k <ep; k++)
+            {
+                int ind = cloudSmoothness[k].ind;
+                if (cloudNeighborPicked[ind] == 0 && cloudCurvature[ind] < surfThreshold)
+                {
 
-            surfaceCloudScanDS->clear();
-            downSizeFilter.setInputCloud(surfaceCloudScan);
-            downSizeFilter.filter(*surfaceCloudScanDS);
+                    cloudLabel[ind] = -1;
+                    cloudNeighborPicked[ind] = 1;
 
-            *surfaceCloud += *surfaceCloudScanDS;
-        #endif
+                    for (int l = 1; l <= 2; l++)
+                    {
+                        cloudNeighborPicked[ind + l] = 1;
+                    }
+                    for (int l = -1; l >= -2; l--)
+                    {
 
+                        cloudNeighborPicked[ind + l] = 1;
+                    }
+                }
+            }
+            for (int k = sp; k < ep; k++)
+            {
+                if (cloudLabel[k] <= 0)
+                {
+                    surfaceCloudScan->push_back(extractedCloud->points[k]);
+                }
+            }
+        }
 
+        surfaceCloudScanDS->clear();
+        downSizeFilter.setInputCloud(surfaceCloudScan);
+        downSizeFilter.filter(*surfaceCloudScanDS);
+
+        *surfaceCloud += *surfaceCloudScanDS;
     }
 
     void freeCloudInfoMemory()

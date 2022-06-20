@@ -2,6 +2,9 @@
 
     <arg name="project" default="lio_sam"/>
     
+    <!-- 指定打印输出的日志等级 -->
+    <env name="ROSCONSOLE_CONFIG_FILE" value="$(find lio_sam)/launch/include/rosconsole/rosconsole_debug.conf"/>
+
     <!-- Parameters -->
     <rosparam file="$(find lio_sam)/config/params9axisIMU.yaml" command="load" />
 

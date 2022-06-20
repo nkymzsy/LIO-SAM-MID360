@@ -255,19 +255,19 @@ public:
         {
             ros::Time startTime = ros::Time::now();
             timeLastProcessing = timeLaserInfoCur;
-            ROS_INFO("M1");
+            ROS_DEBUG("M1");
             updateInitialGuess();
-            ROS_INFO("M2");
+            ROS_DEBUG("M2");
             extractSurroundingKeyFrames();
-            ROS_INFO("M3");
+            ROS_DEBUG("M3");
             downsampleCurrentScan();
-            ROS_INFO("M4");
+            ROS_DEBUG("M4");
             scan2MapOptimization();
-            ROS_INFO("M5");
+            ROS_DEBUG("M5");
             saveKeyFramesAndFactor();
-            ROS_INFO("M6");
+            ROS_DEBUG("M6");
             correctPoses();
-            ROS_INFO("M7");
+            ROS_DEBUG("M7");
             publishOdometry();
 
             publishFrames();
@@ -887,6 +887,13 @@ public:
                 break;
         }
 
+        //  使用滑动窗口法构建局部地图
+        // int numPoses = cloudKeyPoses3D->size();
+        // for (int i = std::max(numPoses-20,0); i < numPoses ; ++i)
+        // {
+        //         surroundingKeyPosesDS->push_back(cloudKeyPoses3D->points[i]);
+        // }
+
         extractCloud(surroundingKeyPosesDS);
     }
 
@@ -1059,9 +1066,9 @@ public:
 
     void surfOptimization()
     {
-        ROS_INFO("M4.4.1");
+        ROS_DEBUG("M4.4.1");
         updatePointAssociateToMap();
-        ROS_INFO("M4.4.2");
+        ROS_DEBUG("M4.4.2");
         #pragma omp parallel for num_threads(numberOfCores)
         for (int i = 0; i < laserCloudSurfLastDSNum; i++)
         {
@@ -1288,17 +1295,17 @@ public:
             {
                 laserCloudOri->clear();
                 coeffSel->clear();
-                ROS_INFO("M4.1");
+                ROS_DEBUG("M4.1");
                 cornerOptimization();
-                ROS_INFO("M4.2");
+                ROS_DEBUG("M4.2");
                 surfOptimization();
-                ROS_INFO("M4.3");
+                ROS_DEBUG("M4.3");
                 combineOptimizationCoeffs();
-                ROS_INFO("M4.4");
+                ROS_DEBUG("M4.4");
                 if (LMOptimization(iterCount) == true)
                     break;              
             }
-             ROS_INFO("M4.5");
+             ROS_DEBUG("M4.5");
              transformUpdate();
         } else {
             ROS_WARN("Not enough features! Only %d edge and %d planar features available.", laserCloudCornerLastDSNum, laserCloudSurfLastDSNum);
