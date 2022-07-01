@@ -32,6 +32,13 @@ roslaunch lio_sam run9axis.launch
 
 <img src="doc/indoorTest.gif" alt="indoorTest.gif" title="Indoor Test" style="zoom: 100%;"/>
 
+- 室外环境 倾斜手持
+
+<img src="doc/Outdoor.gif" alt="Outdoor.gif" title="Outdoor" style="zoom: 100%;"/>
+
+- 室内环境
+
+<img src="doc/indoor.gif" alt="indoor.gif" title="indoor" style="zoom: 100%;"/>
 ## Note
 
 - 注意对齐Lidar与IMU的时间戳。
@@ -43,7 +50,12 @@ roslaunch lio_sam run9axis.launch
 
 - [ ] 提取特征优化
 
+## 已知问题
+
+使用六轴IMU时初始姿态不水平的话IMU里程计会剧烈抖动，IMU预积分存在问题？
+
 ## Acknowledgement
 
 - [LIO-SAM](https://github.com/TixiaoShan/LIO-SAM/)
 - [LIO-SAM-DetailedNote](https://github.com/smilefacehh/LIO-SAM-DetailedNote)
+- [LIO_SAM_6AXIS](https://github.com/JokerJohn/LIO_SAM_6AXIS)

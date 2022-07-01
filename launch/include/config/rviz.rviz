@@ -8,8 +8,8 @@ Panels:
         - /links1
         - /Odometry1
         - /Point Cloud1
-        - /Feature Cloud1
         - /Feature Cloud1/Edge Feature1
+        - /Mapping1/Map (cloud)1
       Splitter Ratio: 0.5600000023841858
     Tree Height: 710
   - Class: rviz/Selection
@@ -244,7 +244,7 @@ Visualization Manager:
           Color: 0; 255; 0
           Color Transformer: Intensity
           Decay Time: 0
-          Enabled: true
+          Enabled: false
           Invert Rainbow: false
           Max Color: 255; 255; 255
           Min Color: 0; 0; 0
@@ -252,14 +252,14 @@ Visualization Manager:
           Position Transformer: XYZ
           Queue Size: 10
           Selectable: true
-          Size (Pixels): 6
+          Size (Pixels): 7
           Size (m): 0.009999999776482582
           Style: Points
           Topic: /lio_sam/feature/cloud_corner
           Unreliable: false
           Use Fixed Frame: true
           Use rainbow: true
-          Value: true
+          Value: false
         - Alpha: 1
           Autocompute Intensity Bounds: true
           Autocompute Value Bounds:
@@ -314,7 +314,7 @@ Visualization Manager:
           Position Transformer: XYZ
           Queue Size: 10
           Selectable: false
-          Size (Pixels): 2
+          Size (Pixels): 1
           Size (m): 0.009999999776482582
           Style: Points
           Topic: /lio_sam/mapping/cloud_registered
@@ -457,7 +457,8 @@ Visualization Manager:
           Marker Topic: /lio_sam/mapping/loop_closure_constraints
           Name: Loop constraint
           Namespaces:
-            {}
+            loop_edges: true
+            loop_nodes: true
           Queue Size: 100
           Value: true
       Enabled: true
@@ -478,25 +479,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 33.88191604614258
+      Distance: 81.79129028320312
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 10.746774673461914
-        Y: 6.741519927978516
-        Z: -0.6399549245834351
+        X: -10.631294250488281
+        Y: -19.241159439086914
+        Z: -0.6386321783065796
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.4197956621646881
+      Pitch: 0.2547963261604309
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 0.9356471300125122
+      Yaw: 1.0387998819351196
     Saved: ~
 Window Geometry:
   Displays:

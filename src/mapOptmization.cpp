@@ -1303,7 +1303,11 @@ public:
                 combineOptimizationCoeffs();
                 ROS_DEBUG("M4.4");
                 if (LMOptimization(iterCount) == true)
-                    break;              
+                    break;           
+                if(iterCount==30)
+                {
+                    ROS_DEBUG("NOT fitness");
+                }   
             }
              ROS_DEBUG("M4.5");
              transformUpdate();

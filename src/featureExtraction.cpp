@@ -7,6 +7,8 @@
 struct smoothness_t{ 
     float value;
     size_t ind;
+    size_t line;
+    size_t ind_line;
 };
 
 struct by_value{ 
@@ -102,6 +104,8 @@ public:
                 // cloudSmoothness for sorting
                 cloudSmoothness[cloudInfo.Line2point[i].index[j]].value = cloudCurvature[cloudInfo.Line2point[i].index[j]];
                 cloudSmoothness[cloudInfo.Line2point[i].index[j]].ind = cloudInfo.Line2point[i].index[j];
+                cloudSmoothness[cloudInfo.Line2point[i].index[j]].line = i;
+                cloudSmoothness[cloudInfo.Line2point[i].index[j]].ind_line = j;
             }
         }
 
@@ -130,10 +134,10 @@ public:
                 float depth2 = cloudInfo.pointRange[cloudInfo.Line2point[k].index[i+1]];
 
                 // 10 pixel diff in range image
-                if (depth1 - depth2 > 3){
+                if (depth1 - depth2 > 1){
                     cloudNeighborPicked[cloudInfo.Line2point[k].index[i-1]] = 1;
                     cloudNeighborPicked[cloudInfo.Line2point[k].index[i]] = 1;
-                }else if (depth2 - depth1 > 3){
+                }else if (depth2 - depth1 > 1){
                     cloudNeighborPicked[cloudInfo.Line2point[k].index[i+1]] = 1;
                 }
 
@@ -141,9 +145,9 @@ public:
                 float diff1 = float(cloudInfo.pointRange[cloudInfo.Line2point[k].index[i-1]] - cloudInfo.pointRange[cloudInfo.Line2point[k].index[i]]);
                 float diff2 = float(cloudInfo.pointRange[cloudInfo.Line2point[k].index[i]] - cloudInfo.pointRange[cloudInfo.Line2point[k].index[i+1]]);
 
-                if (diff1 > 0.2 * cloudInfo.pointRange[cloudInfo.Line2point[k].index[i]] && diff2 >0.2 * cloudInfo.pointRange[cloudInfo.Line2point[k].index[i]])
+                if (diff1 > 0.01 * cloudInfo.pointRange[cloudInfo.Line2point[k].index[i]] && diff2 >0.01 * cloudInfo.pointRange[cloudInfo.Line2point[k].index[i]])
                     cloudNeighborPicked[cloudInfo.Line2point[k].index[i]] = 1;
-                if ((-diff1) > 0.2 * cloudInfo.pointRange[cloudInfo.Line2point[k].index[i]] && (-diff2) >0.2 * cloudInfo.pointRange[cloudInfo.Line2point[k].index[i]])
+                if ((-diff1) > 0.01 * cloudInfo.pointRange[cloudInfo.Line2point[k].index[i]] && (-diff2) >0.01 * cloudInfo.pointRange[cloudInfo.Line2point[k].index[i]])
                     cloudNeighborPicked[cloudInfo.Line2point[k].index[i]] = 1;
             }
         }
@@ -178,6 +182,8 @@ public:
             for (int k =ep; k >= sp; k--)
             {
                 int ind = cloudSmoothness[k].ind;
+                int line = cloudSmoothness[k].line;
+                int ind_line = cloudSmoothness[k].ind_line;
                 if (cloudNeighborPicked[ind] == 0 && cloudCurvature[ind] > edgeThreshold)
                 {
                     largestPickedNum++;
@@ -192,15 +198,16 @@ public:
                     }
 
                     cloudNeighborPicked[ind] = 1;
-                    if (ind < 6 || ind > cloudSize - 7)
+                    //将局部线附近的点覆盖 防止特征聚集
+                    if (ind_line < 5 || ind_line >  cloudInfo.Line2point[line].index.size()  -6)
                         continue;
                     for (int l = 1; l <= 4; l++)
                     {
-                        cloudNeighborPicked[ind + l] = 1;
+                        cloudNeighborPicked[cloudInfo.Line2point[line].index[ind_line+l]]=1;
                     }
                     for (int l = -1; l >= -4; l--)
                     {
-                        cloudNeighborPicked[ind + l] = 1;
+                        cloudNeighborPicked[cloudInfo.Line2point[line].index[ind_line+l]]=1;
                     }
                 }
             }
