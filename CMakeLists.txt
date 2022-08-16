@@ -30,7 +30,6 @@ find_package(Boost REQUIRED COMPONENTS timer)
 add_message_files(
   DIRECTORY msg
   FILES
-  pointIndex.msg
   cloud_info.msg
 )
 

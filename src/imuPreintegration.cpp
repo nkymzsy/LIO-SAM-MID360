@@ -16,9 +16,6 @@
 #include <gtsam/nonlinear/ISAM2.h>
 #include <gtsam_unstable/nonlinear/IncrementalFixedLagSmoother.h>
 
-//Zeng Shengyao: zengshengyao20@mails.ucas.edu.cn
-//本代码为LIO-SAM适配Mid360版本，支持六轴和九轴IMU
-
 using gtsam::symbol_shorthand::X; // Pose3 (x,y,z,r,p,y)
 using gtsam::symbol_shorthand::V; // Vel   (xdot,ydot,zdot)
 using gtsam::symbol_shorthand::B; // Bias  (ax,ay,az,gx,gy,gz)
@@ -236,7 +233,6 @@ public:
         gtsam::ISAM2Params optParameters;
         optParameters.relinearizeThreshold = 0.1;
         optParameters.relinearizeSkip = 1;
-        optParameters.factorization= gtsam::ISAM2Params::QR;
         optimizer = gtsam::ISAM2(optParameters);
 
         gtsam::NonlinearFactorGraph newGraphFactors;
@@ -255,7 +251,6 @@ public:
 
     void odometryHandler(const nav_msgs::Odometry::ConstPtr& odomMsg)
     {
-        ROS_INFO("I0");
         std::lock_guard<std::mutex> lock(mtx);
 
         double currentCorrectionTime = ROS_TIME(odomMsg);
@@ -274,7 +269,7 @@ public:
         bool degenerate = (int)odomMsg->pose.covariance[0] == 1 ? true : false;
         gtsam::Pose3 lidarPose = gtsam::Pose3(gtsam::Rot3::Quaternion(r_w, r_x, r_y, r_z), gtsam::Point3(p_x, p_y, p_z));
 
-        ROS_INFO("I1");
+
         // 0. initialize system
         if (systemInitialized == false)
         {
@@ -320,11 +315,10 @@ public:
             return;
         }
 
-        ROS_INFO("I2");
+
         // reset graph for speed
         if (key == 100)
         {
-            ROS_INFO("\033[1;32m Reset IMU preintegration !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\033[0m");
             // get updated noise before reset
             gtsam::noiseModel::Gaussian::shared_ptr updatedPoseNoise = gtsam::noiseModel::Gaussian::Covariance(optimizer.marginalCovariance(X(key-1)));
             gtsam::noiseModel::Gaussian::shared_ptr updatedVelNoise  = gtsam::noiseModel::Gaussian::Covariance(optimizer.marginalCovariance(V(key-1)));
@@ -352,7 +346,7 @@ public:
             key = 1;
         }
 
-        ROS_INFO("I3");
+
         // 1. integrate imu data and optimize
         while (!imuQueOpt.empty())
         {
@@ -408,13 +402,10 @@ public:
             return;
         }
 
-        ROS_INFO("I4");
+
         // 2. after optiization, re-propagate imu odometry preintegration
         prevStateOdom = prevState_;
         prevBiasOdom  = prevBias_;
-        //打印Bias用于调试
-        ROS_DEBUG_STREAM("IMU bias: "<<prevBiasOdom.vector().transpose());
-
         // first pop imu message older than current correction data
         double lastImuQT = -1;
         while (!imuQueImu.empty() && ROS_TIME(&imuQueImu.front()) < currentCorrectionTime - delta_t)

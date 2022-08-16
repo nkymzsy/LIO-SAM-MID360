@@ -1,9 +1,6 @@
 #include "utility.h"
 #include "lio_sam/cloud_info.h"
-#include "livox_ros_driver/CustomMsg.h"
 
-//Zeng Shengyao: zengshengyao20@mails.ucas.edu.cn
-//本代码为LIO-SAM适配Mid360版本，支持六轴和九轴IMU
 struct VelodynePointXYZIRT
 {
     PCL_ADD_POINT4D
@@ -17,22 +14,37 @@ POINT_CLOUD_REGISTER_POINT_STRUCT (VelodynePointXYZIRT,
     (uint16_t, ring, ring) (float, time, time)
 )
 
-
 struct LiovxPointCustomMsg
 {
     PCL_ADD_POINT4D
     PCL_ADD_INTENSITY;
-    float offset_time;
-    uint16_t line;
+    float time;
+    uint16_t ring;
     uint16_t tag;
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 } EIGEN_ALIGN16;
 POINT_CLOUD_REGISTER_POINT_STRUCT (LiovxPointCustomMsg,
-    (float, x, x) (float, y, y) (float, z, z) (float, intensity, intensity) (float, offset_time, offset_time)
-    (uint16_t, line, line) (uint16_t, tag, tag)
+    (float, x, x) (float, y, y) (float, z, z) (float, intensity, intensity) (float, time, time)
+    (uint16_t, ring, ring) (uint16_t, tag, tag)
 )
 
-// Use the LiovxPointCustomMsg point format
+struct OusterPointXYZIRT {
+    PCL_ADD_POINT4D;
+    float intensity;
+    uint32_t t;
+    uint16_t reflectivity;
+    uint8_t ring;
+    uint16_t noise;
+    uint32_t range;
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+} EIGEN_ALIGN16;
+POINT_CLOUD_REGISTER_POINT_STRUCT(OusterPointXYZIRT,
+    (float, x, x) (float, y, y) (float, z, z) (float, intensity, intensity)
+    (uint32_t, t, t) (uint16_t, reflectivity, reflectivity)
+    (uint8_t, ring, ring) (uint16_t, noise, noise) (uint32_t, range, range)
+)
+
+// Use the Velodyne point format as a common representation
 using PointXYZIRT = LiovxPointCustomMsg;
 
 const int queueLength = 2000;
@@ -69,11 +81,12 @@ private:
     Eigen::Affine3f transStartInverse;
 
     pcl::PointCloud<PointXYZIRT>::Ptr laserCloudIn;
+    pcl::PointCloud<OusterPointXYZIRT>::Ptr tmpOusterCloudIn;
     pcl::PointCloud<PointType>::Ptr   fullCloud;
     pcl::PointCloud<PointType>::Ptr   extractedCloud;
 
     int deskewFlag;
-    float *rangeMat;
+    cv::Mat rangeMat;
 
     bool odomDeskewFlag;
     float odomIncreX;
@@ -85,6 +98,7 @@ private:
     double timeScanEnd;
     std_msgs::Header cloudHeader;
 
+    vector<int> columnIdnCountVec;
 
 
 public:
@@ -107,14 +121,17 @@ public:
     void allocateMemory()
     {
         laserCloudIn.reset(new pcl::PointCloud<PointXYZIRT>());
+        tmpOusterCloudIn.reset(new pcl::PointCloud<OusterPointXYZIRT>());
         fullCloud.reset(new pcl::PointCloud<PointType>());
         extractedCloud.reset(new pcl::PointCloud<PointType>());
 
-        fullCloud->points.resize(pointNumberMax);
+        fullCloud->points.resize(N_SCAN*Horizon_SCAN);
 
-        cloudInfo.pointRange.assign(pointNumberMax, 0);
+        cloudInfo.startRingIndex.assign(N_SCAN, 0);
+        cloudInfo.endRingIndex.assign(N_SCAN, 0);
 
-        rangeMat  = new float[pointNumberMax];
+        cloudInfo.pointColInd.assign(N_SCAN*Horizon_SCAN, 0);
+        cloudInfo.pointRange.assign(N_SCAN*Horizon_SCAN, 0);
 
         resetParameters();
     }
@@ -124,9 +141,7 @@ public:
         laserCloudIn->clear();
         extractedCloud->clear();
         // reset range matrix for range image projection
-
-        for(uint i=0;i<pointNumberMax;i++)
-            rangeMat[i]=FLT_MAX;
+        rangeMat = cv::Mat(N_SCAN, Horizon_SCAN, CV_32F, cv::Scalar::all(FLT_MAX));
 
         imuPointerCur = 0;
         firstPointFlag = true;
@@ -140,6 +155,7 @@ public:
             imuRotZ[i] = 0;
         }
 
+        columnIdnCountVec.assign(N_SCAN, 0);
     }
 
     ~ImageProjection(){}
@@ -151,7 +167,7 @@ public:
         std::lock_guard<std::mutex> lock1(imuLock);
         imuQueue.push_back(thisImu);
 
-        // //debug IMU data
+        // debug IMU data
         // cout << std::setprecision(6);
         // cout << "IMU acc: " << endl;
         // cout << "x: " << thisImu.linear_acceleration.x << 
@@ -177,7 +193,6 @@ public:
 
     void cloudHandler(const livox_ros_driver::CustomMsgConstPtr& laserCloudMsg)
     {
-
         if (!cachePointCloud(laserCloudMsg))
             return;
 
@@ -210,8 +225,8 @@ public:
             point.z=Msg.points[i].z; 
             point.intensity=Msg.points[i].reflectivity; 
             point.tag=Msg.points[i].tag; 
-            point.offset_time=Msg.points[i].offset_time*1e-9; 
-            point.line=Msg.points[i].line; 
+            point.time=Msg.points[i].offset_time*1e-9; 
+            point.ring=Msg.points[i].line; 
             cloud.push_back(point);
         }
     }
@@ -220,18 +235,26 @@ public:
     {
         // cache point cloud
         cloudQueue.push_back(*laserCloudMsg);
-        if (cloudQueue.size() <=2)
+        if (cloudQueue.size() <= 2)
             return false;
 
         // convert cloud
         currentCloudMsg = std::move(cloudQueue.front());
         cloudQueue.pop_front();
-        moveFromCustomMsg(currentCloudMsg, *laserCloudIn);
+        if (sensor == SensorType::LIVOX)
+        {
+            moveFromCustomMsg(currentCloudMsg, *laserCloudIn);
+        }
+        else
+        {
+            ROS_ERROR_STREAM("Unknown sensor type: " << int(sensor));
+            ros::shutdown();
+        }
 
         // get timestamp
         cloudHeader = currentCloudMsg.header;
         timeScanCur = cloudHeader.stamp.toSec();
-        timeScanEnd = timeScanCur + laserCloudIn->points.back().offset_time; //默认按照100ms计算
+        timeScanEnd = timeScanCur + laserCloudIn->points.back().time;
 
         // check dense flag
         if (laserCloudIn->is_dense == false)
@@ -249,11 +272,9 @@ public:
         std::lock_guard<std::mutex> lock2(odoLock);
 
         // make sure IMU data available for the scan
-        ROS_INFO("%f, %f ,%f, %f",imuQueue.front().header.stamp.toSec(), imuQueue.back().header.stamp.toSec(), timeScanCur, timeScanEnd);
         if (imuQueue.empty() || imuQueue.front().header.stamp.toSec() > timeScanCur || imuQueue.back().header.stamp.toSec() < timeScanEnd)
         {
-            ROS_INFO("%f ,%f, %f",imuQueue.back().header.stamp.toSec(), timeScanCur, timeScanEnd);
-            ROS_INFO("Waiting for IMU data ... %d %d %d",imuQueue.empty(), imuQueue.front().header.stamp.toSec() > timeScanCur,imuQueue.back().header.stamp.toSec() < timeScanEnd);
+            ROS_DEBUG("Waiting for IMU data ...");
             return false;
         }
 
@@ -480,59 +501,82 @@ public:
         return newPoint;
     }
 
-    //去畸变校正
     void projectPointCloud()
     {
         int cloudSize = laserCloudIn->points.size();
-        
-        // 遍历当前帧激光点云
+        // range image projection
         for (int i = 0; i < cloudSize; ++i)
         {
-            // pcl格式
             PointType thisPoint;
             thisPoint.x = laserCloudIn->points[i].x;
             thisPoint.y = laserCloudIn->points[i].y;
             thisPoint.z = laserCloudIn->points[i].z;
             thisPoint.intensity = laserCloudIn->points[i].intensity;
 
-            // 距离检查
             float range = pointDistance(thisPoint);
             if (range < lidarMinRange || range > lidarMaxRange)
                 continue;
 
-            // 激光运动畸变校正
-            // 利用当前帧起止时刻之间的imu数据计算旋转增量，imu里程计数据计算平移增量，进而将每一时刻激光点位置变换到第一个激光点坐标系下，进行运动补偿
-            thisPoint = deskewPoint(&thisPoint, laserCloudIn->points[i].offset_time);
+            int rowIdn = laserCloudIn->points[i].ring;
+            if (rowIdn < 0 || rowIdn >= N_SCAN)
+                continue;
 
-            // 矩阵存激光点的距离
-            rangeMat[i]= range;
-            fullCloud->points[i] = thisPoint;
+            if (rowIdn % downsampleRate != 0)
+                continue;
 
+            int columnIdn = -1;
+            if (sensor == SensorType::VELODYNE || sensor == SensorType::OUSTER)
+            {
+                float horizonAngle = atan2(thisPoint.x, thisPoint.y) * 180 / M_PI;
+                static float ang_res_x = 360.0/float(Horizon_SCAN);
+                columnIdn = -round((horizonAngle-90.0)/ang_res_x) + Horizon_SCAN/2;
+                if (columnIdn >= Horizon_SCAN)
+                    columnIdn -= Horizon_SCAN;
+            }
+            else if (sensor == SensorType::LIVOX)
+            {
+                columnIdn = columnIdnCountVec[rowIdn];
+                columnIdnCountVec[rowIdn] += 1;
+            }
+            
+            if (columnIdn < 0 || columnIdn >= Horizon_SCAN)
+                continue;
+
+            if (rangeMat.at<float>(rowIdn, columnIdn) != FLT_MAX)
+                continue;
+
+            thisPoint = deskewPoint(&thisPoint, laserCloudIn->points[i].time);
+
+            rangeMat.at<float>(rowIdn, columnIdn) = range;
+
+            int index = columnIdn + rowIdn * Horizon_SCAN;
+            fullCloud->points[index] = thisPoint;
         }
     }
-    
-    /**
-     * 提取有效激光点，存extractedCloud
-    */
+
     void cloudExtraction()
     {
-        int count=0;
-        int cloudSize = laserCloudIn->points.size();
-        // 清空历史索引
-        for(uint i=0;i<4;i++)
+        int count = 0;
+        // extract segmented cloud for lidar odometry
+        for (int i = 0; i < N_SCAN; ++i)
         {
-            cloudInfo.Line2point[i].index.clear();
-        }
-        // 遍历当前帧激光点云
-        for (int i = 0; i < cloudSize; ++i)
-        {
-            if (rangeMat[i]!= FLT_MAX)
+            cloudInfo.startRingIndex[i] = count - 1 + 5;
+
+            for (int j = 0; j < Horizon_SCAN; ++j)
             {
-                cloudInfo.Line2point[laserCloudIn->points[i].line].index.push_back(count); 
-                cloudInfo.pointRange[count] = rangeMat[i];
-                extractedCloud->push_back(fullCloud->points[i]);
-                ++count;
+                if (rangeMat.at<float>(i,j) != FLT_MAX)
+                {
+                    // mark the points' column index for marking occlusion later
+                    cloudInfo.pointColInd[count] = j;
+                    // save range info
+                    cloudInfo.pointRange[count] = rangeMat.at<float>(i,j);
+                    // save extracted cloud
+                    extractedCloud->push_back(fullCloud->points[j + i*Horizon_SCAN]);
+                    // size of extracted cloud
+                    ++count;
+                }
             }
+            cloudInfo.endRingIndex[i] = count -1 - 5;
         }
     }
     

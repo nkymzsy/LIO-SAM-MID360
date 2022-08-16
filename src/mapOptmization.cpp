@@ -17,9 +17,6 @@
 
 #include <gtsam/nonlinear/ISAM2.h>
 
-//Zeng Shengyao: zengshengyao20@mails.ucas.edu.cn
-//本代码为LIO-SAM适配Mid360版本，支持六轴和九轴IMU
-
 using namespace gtsam;
 
 using symbol_shorthand::X; // Pose3 (x,y,z,r,p,y)
@@ -50,6 +47,37 @@ POINT_CLOUD_REGISTER_POINT_STRUCT (PointXYZIRPYT,
 typedef PointXYZIRPYT  PointTypePose;
 
 
+class save_tum
+{
+private:
+    std::ofstream myfile;
+
+public:
+    void input(double timestamp, double x, double y, double z, double qx = 0, double qy = 0, double qz = 0, double qw = 0)
+    {
+        myfile << std::to_string(timestamp) << " " << x << " " << y << " " << z << " " << qx << " " << qy << " " << qz << " " << qw << std::endl;
+    }
+    save_tum(std::string path)
+    {
+        myfile.open(path, std::ios::app);
+    };
+    ~save_tum()
+    {
+        myfile.close();
+    }
+};
+
+struct fitness{ 
+    float ind;
+    size_t distance;
+    fitness(float ind_,size_t distance_):ind(ind_),distance(distance_){};
+};
+
+struct by_value{ 
+    bool operator()(fitness const &left, fitness const &right) { 
+        return left.distance < right.distance;
+    }
+};
 class mapOptimization : public ParamServer
 {
 
@@ -97,6 +125,8 @@ public:
 
     pcl::PointCloud<PointType>::Ptr laserCloudCornerLast; // corner feature set from odoOptimization
     pcl::PointCloud<PointType>::Ptr laserCloudSurfLast; // surf feature set from odoOptimization
+    pcl::PointCloud<PointType>::Ptr laserCloudCornerLast1; // corner feature set from odoOptimization
+    pcl::PointCloud<PointType>::Ptr laserCloudSurfLast1; // surf feature set from odoOptimization
     pcl::PointCloud<PointType>::Ptr laserCloudCornerLastDS; // downsampled corner feature set from odoOptimization
     pcl::PointCloud<PointType>::Ptr laserCloudSurfLastDS; // downsampled surf feature set from odoOptimization
 
@@ -206,18 +236,21 @@ public:
 
         laserCloudCornerLast.reset(new pcl::PointCloud<PointType>()); // corner feature set from odoOptimization
         laserCloudSurfLast.reset(new pcl::PointCloud<PointType>()); // surf feature set from odoOptimization
+        laserCloudCornerLast1.reset(new pcl::PointCloud<PointType>()); // corner feature set from odoOptimization
+        laserCloudSurfLast1.reset(new pcl::PointCloud<PointType>()); // surf feature set from odoOptimization
+
         laserCloudCornerLastDS.reset(new pcl::PointCloud<PointType>()); // downsampled corner featuer set from odoOptimization
         laserCloudSurfLastDS.reset(new pcl::PointCloud<PointType>()); // downsampled surf featuer set from odoOptimization
 
         laserCloudOri.reset(new pcl::PointCloud<PointType>());
         coeffSel.reset(new pcl::PointCloud<PointType>());
 
-        laserCloudOriCornerVec.resize(pointNumberMax);
-        coeffSelCornerVec.resize(pointNumberMax);
-        laserCloudOriCornerFlag.resize(pointNumberMax);
-        laserCloudOriSurfVec.resize(pointNumberMax);
-        coeffSelSurfVec.resize(pointNumberMax);
-        laserCloudOriSurfFlag.resize(pointNumberMax);
+        laserCloudOriCornerVec.resize(N_SCAN * Horizon_SCAN);
+        coeffSelCornerVec.resize(N_SCAN * Horizon_SCAN);
+        laserCloudOriCornerFlag.resize(N_SCAN * Horizon_SCAN);
+        laserCloudOriSurfVec.resize(N_SCAN * Horizon_SCAN);
+        coeffSelSurfVec.resize(N_SCAN * Horizon_SCAN);
+        laserCloudOriSurfFlag.resize(N_SCAN * Horizon_SCAN);
 
         std::fill(laserCloudOriCornerFlag.begin(), laserCloudOriCornerFlag.end(), false);
         std::fill(laserCloudOriSurfFlag.begin(), laserCloudOriSurfFlag.end(), false);
@@ -253,27 +286,23 @@ public:
         static double timeLastProcessing = -1;
         if (timeLaserInfoCur - timeLastProcessing >= mappingProcessInterval)
         {
-            ros::Time startTime = ros::Time::now();
             timeLastProcessing = timeLaserInfoCur;
-            ROS_DEBUG("M1");
+
             updateInitialGuess();
-            ROS_DEBUG("M2");
+
             extractSurroundingKeyFrames();
-            ROS_DEBUG("M3");
+
             downsampleCurrentScan();
-            ROS_DEBUG("M4");
+
             scan2MapOptimization();
-            ROS_DEBUG("M5");
+
             saveKeyFramesAndFactor();
-            ROS_DEBUG("M6");
+
             correctPoses();
-            ROS_DEBUG("M7");
+
             publishOdometry();
 
             publishFrames();
-            ros::Time endTime = ros::Time::now();
-            auto timeDuring=endTime.toSec()-startTime.toSec();
-            ROS_INFO("Mapping: %.3f s",timeDuring );
         }
     }
 
@@ -299,6 +328,25 @@ public:
 
         Eigen::Affine3f transCur = pcl::getTransformation(transformIn->x, transformIn->y, transformIn->z, transformIn->roll, transformIn->pitch, transformIn->yaw);
         
+        #pragma omp parallel for num_threads(numberOfCores)
+        for (int i = 0; i < cloudSize; ++i)
+        {
+            const auto &pointFrom = cloudIn->points[i];
+            cloudOut->points[i].x = transCur(0,0) * pointFrom.x + transCur(0,1) * pointFrom.y + transCur(0,2) * pointFrom.z + transCur(0,3);
+            cloudOut->points[i].y = transCur(1,0) * pointFrom.x + transCur(1,1) * pointFrom.y + transCur(1,2) * pointFrom.z + transCur(1,3);
+            cloudOut->points[i].z = transCur(2,0) * pointFrom.x + transCur(2,1) * pointFrom.y + transCur(2,2) * pointFrom.z + transCur(2,3);
+            cloudOut->points[i].intensity = pointFrom.intensity;
+        }
+        return cloudOut;
+    }
+
+    pcl::PointCloud<PointType>::Ptr transformPointCloud(pcl::PointCloud<PointType>::Ptr cloudIn,  Eigen::Affine3f transCur)
+    {
+        pcl::PointCloud<PointType>::Ptr cloudOut(new pcl::PointCloud<PointType>());
+
+        int cloudSize = cloudIn->size();
+        cloudOut->resize(cloudSize);
+
         #pragma omp parallel for num_threads(numberOfCores)
         for (int i = 0; i < cloudSize; ++i)
         {
@@ -346,6 +394,19 @@ public:
     }
 
     
+
+
+
+
+
+
+
+
+
+
+
+
+
     bool saveMapService(lio_sam::save_mapRequest& req, lio_sam::save_mapResponse& res)
     {
       string saveMapDirectory;
@@ -355,9 +416,9 @@ public:
       if(req.destination.empty()) saveMapDirectory = std::getenv("HOME") + savePCDDirectory;
       else saveMapDirectory = std::getenv("HOME") + req.destination;
       cout << "Save destination: " << saveMapDirectory << endl;
-    //   // create directory and remove old files;
-    //   int unused = system((std::string("exec rm -r ") + saveMapDirectory).c_str());
-    //   unused = system((std::string("mkdir -p ") + saveMapDirectory).c_str());
+      // create directory and remove old files;
+      int unused = system((std::string("exec rm -r ") + saveMapDirectory).c_str());
+      unused = system((std::string("mkdir -p ") + saveMapDirectory).c_str());
       // save key frame transformations
       pcl::io::savePCDFileBinary(saveMapDirectory + "/trajectory.pcd", *cloudKeyPoses3D);
       pcl::io::savePCDFileBinary(saveMapDirectory + "/transformations.pcd", *cloudKeyPoses6D);
@@ -372,6 +433,13 @@ public:
           *globalSurfCloud   += *transformPointCloud(surfCloudKeyFrames[i],    &cloudKeyPoses6D->points[i]);
           cout << "\r" << std::flush << "Processing feature cloud " << i << " of " << cloudKeyPoses6D->size() << " ...";
       }
+
+        //保存TMU格式的轨迹文件
+        save_tum save_tum_pose3D(saveMapDirectory + "/save_tum_pose3D.txt");
+        for (int i = 0; i < (int)cloudKeyPoses3D->size(); i++)
+        {
+            save_tum_pose3D.input(cloudKeyPoses6D->points[i].time , cloudKeyPoses3D->points[i].x,cloudKeyPoses3D->points[i].y,cloudKeyPoses3D->points[i].z);
+        }
 
       if(req.resolution != 0)
       {
@@ -887,13 +955,6 @@ public:
                 break;
         }
 
-        //  使用滑动窗口法构建局部地图
-        // int numPoses = cloudKeyPoses3D->size();
-        // for (int i = std::max(numPoses-20,0); i < numPoses ; ++i)
-        // {
-        //         surroundingKeyPosesDS->push_back(cloudKeyPoses3D->points[i]);
-        // }
-
         extractCloud(surroundingKeyPosesDS);
     }
 
@@ -1066,9 +1127,8 @@ public:
 
     void surfOptimization()
     {
-        ROS_DEBUG("M4.4.1");
         updatePointAssociateToMap();
-        ROS_DEBUG("M4.4.2");
+
         #pragma omp parallel for num_threads(numberOfCores)
         for (int i = 0; i < laserCloudSurfLastDSNum; i++)
         {
@@ -1078,6 +1138,175 @@ public:
 
             pointOri = laserCloudSurfLastDS->points[i];
             pointAssociateToMap(&pointOri, &pointSel); 
+            kdtreeSurfFromMap->nearestKSearch(pointSel, 5, pointSearchInd, pointSearchSqDis);
+
+            Eigen::Matrix<float, 5, 3> matA0;
+            Eigen::Matrix<float, 5, 1> matB0;
+            Eigen::Vector3f matX0;
+
+            matA0.setZero();
+            matB0.fill(-1);
+            matX0.setZero();
+
+            if (pointSearchSqDis[4] < 1.0) {
+                for (int j = 0; j < 5; j++) {
+                    matA0(j, 0) = laserCloudSurfFromMapDS->points[pointSearchInd[j]].x;
+                    matA0(j, 1) = laserCloudSurfFromMapDS->points[pointSearchInd[j]].y;
+                    matA0(j, 2) = laserCloudSurfFromMapDS->points[pointSearchInd[j]].z;
+                }
+
+                matX0 = matA0.colPivHouseholderQr().solve(matB0);
+
+                float pa = matX0(0, 0);
+                float pb = matX0(1, 0);
+                float pc = matX0(2, 0);
+                float pd = 1;
+
+                float ps = sqrt(pa * pa + pb * pb + pc * pc);
+                pa /= ps; pb /= ps; pc /= ps; pd /= ps;
+
+                bool planeValid = true;
+                for (int j = 0; j < 5; j++) {
+                    if (fabs(pa * laserCloudSurfFromMapDS->points[pointSearchInd[j]].x +
+                             pb * laserCloudSurfFromMapDS->points[pointSearchInd[j]].y +
+                             pc * laserCloudSurfFromMapDS->points[pointSearchInd[j]].z + pd) > 0.2) {
+                        planeValid = false;
+                        break;
+                    }
+                }
+
+                if (planeValid) {
+                    float pd2 = pa * pointSel.x + pb * pointSel.y + pc * pointSel.z + pd;
+
+                    float s = 1 - 0.9 * fabs(pd2) / sqrt(sqrt(pointOri.x * pointOri.x
+                            + pointOri.y * pointOri.y + pointOri.z * pointOri.z));
+
+                    coeff.x = s * pa;
+                    coeff.y = s * pb;
+                    coeff.z = s * pc;
+                    coeff.intensity = s * pd2;
+
+                    if (s > 0.1) {
+                        laserCloudOriSurfVec[i] = pointOri;
+                        coeffSelSurfVec[i] = coeff;
+                        laserCloudOriSurfFlag[i] = true;
+                    }
+                }
+            }
+        }
+    }
+
+    void cornerOptimization2(std::vector<fitness> &edgeFitness)
+    {
+        updatePointAssociateToMap();
+        
+        //只选用前80%的点
+        int edgeNumber=(int)edgeFitness.size()*0.8;
+
+        #pragma omp parallel for num_threads(numberOfCores)
+        for (int i = 0; i < edgeNumber;  i++)
+        {
+            PointType pointOri, pointSel, coeff;
+            std::vector<int> pointSearchInd;
+            std::vector<float> pointSearchSqDis;
+
+            pointOri = laserCloudCornerLastDS->points[edgeFitness[i].ind];
+            pointAssociateToMap(&pointOri, &pointSel);
+            kdtreeCornerFromMap->nearestKSearch(pointSel, 5, pointSearchInd, pointSearchSqDis);
+
+            cv::Mat matA1(3, 3, CV_32F, cv::Scalar::all(0));
+            cv::Mat matD1(1, 3, CV_32F, cv::Scalar::all(0));
+            cv::Mat matV1(3, 3, CV_32F, cv::Scalar::all(0));
+                    
+            if (pointSearchSqDis[4] < 1.0) {
+                float cx = 0, cy = 0, cz = 0;
+                for (int j = 0; j < 5; j++) {
+                    cx += laserCloudCornerFromMapDS->points[pointSearchInd[j]].x;
+                    cy += laserCloudCornerFromMapDS->points[pointSearchInd[j]].y;
+                    cz += laserCloudCornerFromMapDS->points[pointSearchInd[j]].z;
+                }
+                cx /= 5; cy /= 5;  cz /= 5;
+
+                float a11 = 0, a12 = 0, a13 = 0, a22 = 0, a23 = 0, a33 = 0;
+                for (int j = 0; j < 5; j++) {
+                    float ax = laserCloudCornerFromMapDS->points[pointSearchInd[j]].x - cx;
+                    float ay = laserCloudCornerFromMapDS->points[pointSearchInd[j]].y - cy;
+                    float az = laserCloudCornerFromMapDS->points[pointSearchInd[j]].z - cz;
+
+                    a11 += ax * ax; a12 += ax * ay; a13 += ax * az;
+                    a22 += ay * ay; a23 += ay * az;
+                    a33 += az * az;
+                }
+                a11 /= 5; a12 /= 5; a13 /= 5; a22 /= 5; a23 /= 5; a33 /= 5;
+
+                matA1.at<float>(0, 0) = a11; matA1.at<float>(0, 1) = a12; matA1.at<float>(0, 2) = a13;
+                matA1.at<float>(1, 0) = a12; matA1.at<float>(1, 1) = a22; matA1.at<float>(1, 2) = a23;
+                matA1.at<float>(2, 0) = a13; matA1.at<float>(2, 1) = a23; matA1.at<float>(2, 2) = a33;
+
+                cv::eigen(matA1, matD1, matV1);
+
+                if (matD1.at<float>(0, 0) > 3 * matD1.at<float>(0, 1)) {
+
+                    float x0 = pointSel.x;
+                    float y0 = pointSel.y;
+                    float z0 = pointSel.z;
+                    float x1 = cx + 0.1 * matV1.at<float>(0, 0);
+                    float y1 = cy + 0.1 * matV1.at<float>(0, 1);
+                    float z1 = cz + 0.1 * matV1.at<float>(0, 2);
+                    float x2 = cx - 0.1 * matV1.at<float>(0, 0);
+                    float y2 = cy - 0.1 * matV1.at<float>(0, 1);
+                    float z2 = cz - 0.1 * matV1.at<float>(0, 2);
+
+                    float a012 = sqrt(((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1)) * ((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1)) 
+                                    + ((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1)) * ((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1)) 
+                                    + ((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1)) * ((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1)));
+
+                    float l12 = sqrt((x1 - x2)*(x1 - x2) + (y1 - y2)*(y1 - y2) + (z1 - z2)*(z1 - z2));
+
+                    float la = ((y1 - y2)*((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1)) 
+                              + (z1 - z2)*((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1))) / a012 / l12;
+
+                    float lb = -((x1 - x2)*((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1)) 
+                               - (z1 - z2)*((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1))) / a012 / l12;
+
+                    float lc = -((x1 - x2)*((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1)) 
+                               + (y1 - y2)*((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1))) / a012 / l12;
+
+                    float ld2 = a012 / l12;
+
+                    float s = 1 - 0.9 * fabs(ld2);
+
+                    coeff.x = s * la;
+                    coeff.y = s * lb;
+                    coeff.z = s * lc;
+                    coeff.intensity = s * ld2;
+
+                    if (s > 0.1) {
+                        laserCloudOriCornerVec[i] = pointOri;
+                        coeffSelCornerVec[i] = coeff;
+                        laserCloudOriCornerFlag[i] = true;
+                    }
+                }
+            }
+        }
+    }
+
+    void surfOptimization2(std::vector<fitness> &surfFitness)
+    {
+        ROS_DEBUG("M4.4.1");
+        updatePointAssociateToMap();
+        ROS_DEBUG("M4.4.2");
+
+        int edgeNumber=(int)surfFitness.size()*0.8; //只选用前80%的点参与优化
+        #pragma omp parallel for num_threads(numberOfCores)
+        for (int i = 0; i < edgeNumber; i++)
+        {
+            PointType pointOri, pointSel, coeff;
+            std::vector<int> pointSearchInd;
+            std::vector<float> pointSearchSqDis;
+
+            pointOri = laserCloudSurfLastDS->points[surfFitness[i].ind];
+            pointAssociateToMap(&pointOri, &pointSel);
             kdtreeSurfFromMap->nearestKSearch(pointSel, 5, pointSearchInd, pointSearchSqDis);
 
             Eigen::Matrix<float, 5, 3> matA0;
@@ -1291,26 +1520,50 @@ public:
             kdtreeCornerFromMap->setInputCloud(laserCloudCornerFromMapDS);
             kdtreeSurfFromMap->setInputCloud(laserCloudSurfFromMapDS);
 
-            for (int iterCount = 0; iterCount < 30; iterCount++)
+            for (int iterCount = 0; iterCount < 25; iterCount++)
             {
                 laserCloudOri->clear();
                 coeffSel->clear();
-                ROS_DEBUG("M4.1");
+                std::fill(laserCloudOriCornerFlag.begin(), laserCloudOriCornerFlag.end(), false);
+                std::fill(laserCloudOriSurfFlag.begin(), laserCloudOriSurfFlag.end(), false);
+
                 cornerOptimization();
-                ROS_DEBUG("M4.2");
                 surfOptimization();
-                ROS_DEBUG("M4.3");
+
                 combineOptimizationCoeffs();
-                ROS_DEBUG("M4.4");
+
                 if (LMOptimization(iterCount) == true)
-                    break;           
-                if(iterCount==30)
-                {
-                    ROS_DEBUG("NOT fitness");
-                }   
+                    break;              
             }
-             ROS_DEBUG("M4.5");
-             transformUpdate();
+            transformUpdate();
+        } else {
+            ROS_WARN("Not enough features! Only %d edge and %d planar features available.", laserCloudCornerLastDSNum, laserCloudSurfLastDSNum);
+        }
+    }
+
+    void scan2MapOptimization2()
+    {
+        if (cloudKeyPoses3D->points.empty())
+            return;
+
+        if (laserCloudCornerLastDSNum > edgeFeatureMinValidNum && laserCloudSurfLastDSNum > surfFeatureMinValidNum)
+        {
+            kdtreeCornerFromMap->setInputCloud(laserCloudCornerFromMapDS);
+            kdtreeSurfFromMap->setInputCloud(laserCloudSurfFromMapDS);
+
+            for (int iterCount = 0; iterCount < 3; iterCount++)
+            {
+                laserCloudOri->clear();
+                coeffSel->clear();
+
+                cornerOptimization();
+                surfOptimization();
+
+                combineOptimizationCoeffs();
+
+                if (LMOptimization(iterCount) == true)
+                    break;              
+            }
         } else {
             ROS_WARN("Not enough features! Only %d edge and %d planar features available.", laserCloudCornerLastDSNum, laserCloudSurfLastDSNum);
         }
@@ -1318,33 +1571,28 @@ public:
 
     void transformUpdate()
     {
-        //如果是九轴IMU才利用IMU姿态加权融合
-        if(imuType==1)
+        if (cloudInfo.imuAvailable == true)
         {
-            if (cloudInfo.imuAvailable == true)
+            if (std::abs(cloudInfo.imuPitchInit) < 1.4)
             {
-                if (std::abs(cloudInfo.imuPitchInit) < 1.4)
-                {
-                    double imuWeight = imuRPYWeight;
-                    tf::Quaternion imuQuaternion;
-                    tf::Quaternion transformQuaternion;
-                    double rollMid, pitchMid, yawMid;
+                double imuWeight = imuRPYWeight;
+                tf::Quaternion imuQuaternion;
+                tf::Quaternion transformQuaternion;
+                double rollMid, pitchMid, yawMid;
 
-                    // slerp roll
-                    transformQuaternion.setRPY(transformTobeMapped[0], 0, 0);
-                    imuQuaternion.setRPY(cloudInfo.imuRollInit, 0, 0);
-                    tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
-                    transformTobeMapped[0] = rollMid;
+                // slerp roll
+                transformQuaternion.setRPY(transformTobeMapped[0], 0, 0);
+                imuQuaternion.setRPY(cloudInfo.imuRollInit, 0, 0);
+                tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
+                transformTobeMapped[0] = rollMid;
 
-                    // slerp pitch
-                    transformQuaternion.setRPY(0, transformTobeMapped[1], 0);
-                    imuQuaternion.setRPY(0, cloudInfo.imuPitchInit, 0);
-                    tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
-                    transformTobeMapped[1] = pitchMid;
-                }
+                // slerp pitch
+                transformQuaternion.setRPY(0, transformTobeMapped[1], 0);
+                imuQuaternion.setRPY(0, cloudInfo.imuPitchInit, 0);
+                tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
+                transformTobeMapped[1] = pitchMid;
             }
         }
-
 
         transformTobeMapped[0] = constraintTransformation(transformTobeMapped[0], rotation_tollerance);
         transformTobeMapped[1] = constraintTransformation(transformTobeMapped[1], rotation_tollerance);
@@ -1368,12 +1616,11 @@ public:
         if (cloudKeyPoses3D->points.empty())
             return true;
 
-        // 感觉没有必要超过一秒就添加关键帧？
-        // if (sensor == SensorType::LIVOX)
-        // {
-        //     if (timeLaserInfoCur - cloudKeyPoses6D->back().time > 1.0)
-        //         return true;
-        // }
+        if (sensor == SensorType::LIVOX)
+        {
+            if (timeLaserInfoCur - cloudKeyPoses6D->back().time > 1.0)
+                return true;
+        }
 
         Eigen::Affine3f transStart = pclPointToAffine3f(cloudKeyPoses6D->back());
         Eigen::Affine3f transFinal = pcl::getTransformation(transformTobeMapped[3], transformTobeMapped[4], transformTobeMapped[5], 
@@ -1677,33 +1924,28 @@ public:
             increOdomAffine = increOdomAffine * affineIncre;
             float x, y, z, roll, pitch, yaw;
             pcl::getTranslationAndEulerAngles (increOdomAffine, x, y, z, roll, pitch, yaw);
-            //使用九轴IMU的时候才选择用IMU姿态进行位姿融合
-            if(imuType==1)
+            if (cloudInfo.imuAvailable == true)
             {
-                if (cloudInfo.imuAvailable == true)
+                if (std::abs(cloudInfo.imuPitchInit) < 1.4)
                 {
-                    if (std::abs(cloudInfo.imuPitchInit) < 1.4)
-                    {
-                        double imuWeight = 0.1;
-                        tf::Quaternion imuQuaternion;
-                        tf::Quaternion transformQuaternion;
-                        double rollMid, pitchMid, yawMid;
+                    double imuWeight = 0.1;
+                    tf::Quaternion imuQuaternion;
+                    tf::Quaternion transformQuaternion;
+                    double rollMid, pitchMid, yawMid;
 
-                        // slerp roll
-                        transformQuaternion.setRPY(roll, 0, 0);
-                        imuQuaternion.setRPY(cloudInfo.imuRollInit, 0, 0);
-                        tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
-                        roll = rollMid;
+                    // slerp roll
+                    transformQuaternion.setRPY(roll, 0, 0);
+                    imuQuaternion.setRPY(cloudInfo.imuRollInit, 0, 0);
+                    tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
+                    roll = rollMid;
 
-                        // slerp pitch
-                        transformQuaternion.setRPY(0, pitch, 0);
-                        imuQuaternion.setRPY(0, cloudInfo.imuPitchInit, 0);
-                        tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
-                        pitch = pitchMid;
-                    }
+                    // slerp pitch
+                    transformQuaternion.setRPY(0, pitch, 0);
+                    imuQuaternion.setRPY(0, cloudInfo.imuPitchInit, 0);
+                    tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
+                    pitch = pitchMid;
                 }
             }
-
             laserOdomIncremental.header.stamp = timeLaserInfoStamp;
             laserOdomIncremental.header.frame_id = odometryFrame;
             laserOdomIncremental.child_frame_id = "odom_mapping";
