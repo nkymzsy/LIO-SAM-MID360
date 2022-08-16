@@ -32,8 +32,8 @@ lio_sam:
 
   # IMU Settings
   imuType: 1                               #0: 6-axis imu  1:9-axis imu 注意使用六轴IMU时默认使用MID360内置的IMU数据，加速度单位为g，后续处理中会将这一值乘以重力加速度，恢复为m/s^2
-  imuAccNoise: 1.0e-04
-  imuGyrNoise: 1.0e-04   
+  imuAccNoise: 1.0e-03
+  imuGyrNoise: 1.0e-03  
   imuAccBiasN: -0.01
   imuGyrBiasN: -0.01
   imuGravity: 9.8035
@@ -87,7 +87,7 @@ lio_sam:
   surroundingkeyframeAddingDistThreshold: 0.5   # meters, regulate keyframe adding threshold
   surroundingkeyframeAddingAngleThreshold: 0.2  # radians, regulate keyframe adding threshold
   surroundingKeyframeDensity: 0.5               # meters, downsample surrounding keyframe poses   
-  surroundingKeyframeSearchRadius: 30.0         # meters, within n meters scan-to-map optimization (when loop closure disabled)
+  surroundingKeyframeSearchRadius: 10.0         # meters, within n meters scan-to-map optimization (when loop closure disabled)
 
   # Loop closure
   loopClosureEnableFlag: false
