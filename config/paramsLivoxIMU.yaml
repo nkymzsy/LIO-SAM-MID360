@@ -29,7 +29,7 @@ lio_sam:
   Horizon_SCAN: 6000                          # lidar horizontal resolution (Velodyne:1800, Ouster:512,1024,2048, Livox Horizon: 4000)
   downsampleRate: 1                           # default: 1. Downsample your data if too many points. i.e., 16 = 64 / 4, 16 = 16 / 1
   lidarMinRange: 1.0                          # default: 1.0, minimum lidar range to be used
-  lidarMaxRange: 15.0                       # default: 1000.0, maximum lidar range to be used
+  lidarMaxRange: 40.0                       # default: 1000.0, maximum lidar range to be used
   
   # IMU Settings
   imuType: 0                               #0: 6-axis imu  1:9-axis imu 注意使用六轴IMU时默认使用MID360内置的IMU数据，加速度单位为g，后续处理中会将这一值乘以重力加速度，恢复为m/s^2
@@ -55,9 +55,9 @@ lio_sam:
   surfFeatureMinValidNum: 100
 
   # voxel filter paprams
-  odometrySurfLeafSize: 0.4                     # default: 0.4 - outdoor, 0.2 - indoor
-  mappingCornerLeafSize: 0.2                    # default: 0.2 - outdoor, 0.1 - indoor
-  mappingSurfLeafSize: 0.4                      # default: 0.4 - outdoor, 0.2 - indoor
+  odometrySurfLeafSize: 0.2                     # default: 0.4 - outdoor, 0.2 - indoor
+  mappingCornerLeafSize: 0.1                    # default: 0.2 - outdoor, 0.1 - indoor
+  mappingSurfLeafSize: 0.2                      # default: 0.4 - outdoor, 0.2 - indoor
 
   # robot motion constraint (in case you are using a 2D robot)
   z_tollerance: 1000                            # meters
@@ -70,7 +70,7 @@ lio_sam:
   # Surrounding map
   surroundingkeyframeAddingDistThreshold: 0.5   # meters, regulate keyframe adding threshold
   surroundingkeyframeAddingAngleThreshold: 0.1  # radians, regulate keyframe adding threshold
-  surroundingKeyframeDensity: 1.0               # meters, downsample surrounding keyframe poses   
+  surroundingKeyframeDensity: 0.5               # meters, downsample surrounding keyframe poses   
   surroundingKeyframeSearchRadius: 20.0         # meters, within n meters scan-to-map optimization (when loop closure disabled)
 
   # Loop closure

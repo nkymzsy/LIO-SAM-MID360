@@ -505,13 +505,14 @@ public:
     {
         int cloudSize = laserCloudIn->points.size();
         // range image projection
-        for (int i = 0; i < cloudSize; ++i)
+        for (int i = 0 ; i < cloudSize; ++i)
         {
             PointType thisPoint;
             thisPoint.x = laserCloudIn->points[i].x;
             thisPoint.y = laserCloudIn->points[i].y;
             thisPoint.z = laserCloudIn->points[i].z;
             thisPoint.intensity = laserCloudIn->points[i].intensity;
+            // thisPoint.intensity = (laserCloudIn->points[i].ring+1) * 17;
 
             float range = pointDistance(thisPoint);
             if (range < lidarMinRange || range > lidarMaxRange)

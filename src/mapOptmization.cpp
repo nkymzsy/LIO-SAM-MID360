@@ -47,26 +47,6 @@ POINT_CLOUD_REGISTER_POINT_STRUCT (PointXYZIRPYT,
 typedef PointXYZIRPYT  PointTypePose;
 
 
-class save_tum
-{
-private:
-    std::ofstream myfile;
-
-public:
-    void input(double timestamp, double x, double y, double z, double qx = 0, double qy = 0, double qz = 0, double qw = 0)
-    {
-        myfile << std::to_string(timestamp) << " " << x << " " << y << " " << z << " " << qx << " " << qy << " " << qz << " " << qw << std::endl;
-    }
-    save_tum(std::string path)
-    {
-        myfile.open(path, std::ios::app);
-    };
-    ~save_tum()
-    {
-        myfile.close();
-    }
-};
-
 class mapOptimization : public ParamServer
 {
 
@@ -422,13 +402,6 @@ public:
           *globalSurfCloud   += *transformPointCloud(surfCloudKeyFrames[i],    &cloudKeyPoses6D->points[i]);
           cout << "\r" << std::flush << "Processing feature cloud " << i << " of " << cloudKeyPoses6D->size() << " ...";
       }
-
-        //保存TMU格式的轨迹文件
-        save_tum save_tum_pose3D(saveMapDirectory + "/save_tum_pose3D.txt");
-        for (int i = 0; i < (int)cloudKeyPoses3D->size(); i++)
-        {
-            save_tum_pose3D.input(cloudKeyPoses6D->points[i].time , cloudKeyPoses3D->points[i].x,cloudKeyPoses3D->points[i].y,cloudKeyPoses3D->points[i].z);
-        }
 
       if(req.resolution != 0)
       {
