@@ -1,5 +1,8 @@
 # LIO-SAM-MID360
 
+## 注意
+本代码目前无法之间使用，原因见[Failure with mid360](https://github.com/nkymzsy/LIO-SAM-MID360/issues/6)
+
 本代码为LIO-SAM适配Livox MID360版本。
 支持使用六轴和九轴IMU。
 
