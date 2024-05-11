@@ -68,8 +68,8 @@ private:
     ros::Subscriber subOdom;
     std::deque<nav_msgs::Odometry> odomQueue;
 
-    std::deque<livox_ros_driver::CustomMsg> cloudQueue;
-    livox_ros_driver::CustomMsg currentCloudMsg;
+    std::deque<livox_ros_driver2::CustomMsg> cloudQueue;
+    livox_ros_driver2::CustomMsg currentCloudMsg;
 
     double *imuTime = new double[queueLength];
     double *imuRotX = new double[queueLength];
@@ -107,7 +107,7 @@ public:
     {
         subImu        = nh.subscribe<sensor_msgs::Imu>(imuTopic, 2000, &ImageProjection::imuHandler, this, ros::TransportHints().tcpNoDelay());
         subOdom       = nh.subscribe<nav_msgs::Odometry>(odomTopic+"_incremental", 2000, &ImageProjection::odometryHandler, this, ros::TransportHints().tcpNoDelay());
-        subLaserCloud = nh.subscribe<livox_ros_driver::CustomMsg>(pointCloudTopic, 5, &ImageProjection::cloudHandler, this, ros::TransportHints().tcpNoDelay());
+        subLaserCloud = nh.subscribe<livox_ros_driver2::CustomMsg>(pointCloudTopic, 5, &ImageProjection::cloudHandler, this, ros::TransportHints().tcpNoDelay());
 
         pubExtractedCloud = nh.advertise<sensor_msgs::PointCloud2> ("lio_sam/deskew/cloud_deskewed", 1);
         pubLaserCloudInfo = nh.advertise<lio_sam::cloud_info> ("lio_sam/deskew/cloud_info", 1);
@@ -191,7 +191,7 @@ public:
         odomQueue.push_back(*odometryMsg);
     }
 
-    void cloudHandler(const livox_ros_driver::CustomMsgConstPtr& laserCloudMsg)
+    void cloudHandler(const livox_ros_driver2::CustomMsgConstPtr& laserCloudMsg)
     {
         if (!cachePointCloud(laserCloudMsg))
             return;
@@ -208,7 +208,7 @@ public:
         resetParameters();
     }
 
-    void moveFromCustomMsg(livox_ros_driver::CustomMsg &Msg, pcl::PointCloud<PointXYZIRT> & cloud)
+    void moveFromCustomMsg(livox_ros_driver2::CustomMsg &Msg, pcl::PointCloud<PointXYZIRT> & cloud)
     {
         cloud.clear();
         cloud.reserve(Msg.point_num);
@@ -231,7 +231,7 @@ public:
         }
     }
 
-    bool cachePointCloud(const livox_ros_driver::CustomMsgConstPtr& laserCloudMsg)
+    bool cachePointCloud(const livox_ros_driver2::CustomMsgConstPtr& laserCloudMsg)
     {
         // cache point cloud
         cloudQueue.push_back(*laserCloudMsg);
