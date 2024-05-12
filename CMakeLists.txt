@@ -4,6 +4,7 @@ project(lio_sam)
 set(CMAKE_BUILD_TYPE "Release")
 set(CMAKE_CXX_FLAGS "-std=c++11")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g -pthread")
+set(PCL_DIR "/home/deploy/livox_lidar/pcl-pcl-1.8.0/build")
 
 find_package(catkin REQUIRED COMPONENTS
   tf
