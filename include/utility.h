@@ -53,7 +53,8 @@
 #include <array>
 #include <thread>
 #include <mutex>
-#include "livox_ros_driver/CustomMsg.h"
+// #include "livox_ros_driver/CustomMsg.h"
+#include "../livox_ros_driver2/CustomMsg.h"
 using namespace std;
 
 typedef pcl::PointXYZI PointType;
